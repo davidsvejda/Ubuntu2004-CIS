@@ -1,0 +1,466 @@
+---
+- name: "SCORED | 2.1.1 | PATCH | Ensure xinetd is not installed"
+  apt:
+    name: xinetd
+    state: absent
+  when:
+    - ubuntu2004cis_rule_2_1_1
+  tags:
+      - level1
+      - scored
+      - services
+      - patch
+      - rule_2.1.1
+      - skip_ansible_lint
+
+- name: "SCORED | 2.1.2 | PATCH | Ensure openbsd-inetd is not installed"
+  apt:
+    name: openbsd-inetd
+    state: absent
+  when:
+      - ubuntu2004cis_rule_2_1_2
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.1.2
+      - skip_ansible_lint
+
+- name: "SCORED | 2.2.1.1 | PATCH | Ensure time synchronization is in use"
+  block:
+      - name: "SCORED | 2.2.1.1 | PATCH | Ensure time synchronization is in use - service install"
+        apt:
+            name: "{{ ubuntu2004cis_time_synchronization }}"
+            state: present
+            install_recommends: false
+
+      - name: "SCORED | 2.2.1.1 | PATCH | Ensure time synchronization is in use - service start"
+        service:
+            name: "{{ ubuntu2004cis_time_synchronization }}"
+            state: started
+            enabled: true
+
+      - name: "SCORED | 2.2.1.1 | PATCH | Ensure time synchronization is in use - service stop ntp"
+        service:
+            name: "{{ ntp_service[ansible_os_family] }}"
+            state: stopped
+            enabled: false
+        when:
+            - ubuntu2004cis_time_synchronization == "chrony"
+            - ntpd_service_status.stdout == "loaded"
+
+      - name: "SCORED | 2.2.1.1 | PATCH | Ensure time synchronization is in use - service stop chrony"
+        service:
+            name: chronyd
+            state: stopped
+            enabled: false
+        ignore_errors: true
+        when:
+            - ubuntu2004cis_time_synchronization == "ntp"
+            - chronyd_service_status.stdout == "loaded"
+  when:
+      - ubuntu2004cis_rule_2_2_1_1
+  tags:
+      - level1
+      - scored
+      - ntp
+      - chrony
+      - patch
+      - rule_2.2.1.1
+
+- name: "NOTSCORED | 2.2.1.2 | PATCH | Ensure systemd-timesyncd is configured"
+  command: /bin/true
+  changed_when: false
+  when:
+      - ubuntu2004cis_rule_2_2_1_2
+  tags:
+      - level1
+      - notscored
+      - patch
+      - rule_2.2.1.2
+      - notimplemented
+
+- name: "SCORED | 2.2.1.3 | PATCH | Ensure chrony is configured"
+  block:
+      - name: "SCORED | 2.2.1.3 | PATCH | Ensure chrony is configured | create chrony.conf"
+        template:
+            src: chrony.conf.j2
+            dest: "{{ chrony_config_file[ansible_os_family] }}"
+            owner: root
+            group: root
+            mode: 0644
+
+      - name: "SCORED | 2.2.1.3 | PATCH | Ensure chrony is configured | modify /etc/sysconfig/chronyd"
+        lineinfile:
+            dest: /etc/sysconfig/chronyd
+            regexp: "^(#)?OPTIONS"
+            line: "OPTIONS=\"-u chrony\""
+            state: present
+            create: true
+  when:
+      - ubuntu2004cis_time_synchronization == "chrony"
+      - ubuntu2004cis_rule_2_2_1_3
+  tags:
+      - level1
+      - scored
+      - chrony
+      - patch
+      - rule_2.2.1.3
+
+- name: "SCORED | 2.2.1.4 | PATCH | Ensure ntp is configured"
+  block:
+      - name: "SCORED | 2.2.1.4 | PATCH | Ensure ntp is configured | modify /etc/ntp.conf"
+        template:
+            src: ntp.conf.j2
+            dest: /etc/ntp.conf
+            owner: root
+            group: root
+            mode: 0644
+
+      - name: "SCORED | 2.2.1.4 | PATCH | Ensure ntp is configured | modify /etc/init.d/ntp"
+        lineinfile:
+            dest: /etc/init.d/ntp
+            regexp: "^RUNASUSER"
+            line: "RUNASUSER=ntp"
+  when:
+      - ubuntu2004cis_time_synchronization == "ntp"
+      - ubuntu2004cis_rule_2_2_1_4
+  tags:
+      - level1
+      - scored
+      - ntp
+      - patch
+      - rule_2.2.1.4
+
+- name: "SCORED | 2.2.2 | PATCH | Ensure X Window System is not installed"
+  apt:
+      name:
+        - "xorg"
+        - "x11*"
+      state: absent
+  when:
+      - not ubuntu2004cis_xwindows_required
+      - ubuntu2004cis_rule_2_2_2
+  tags:
+      - level1
+      - scored
+      - xwindows
+      - patch
+      - rule_2.2.2
+
+- name: "SCORED | 2.2.3 | PATCH | Ensure Avahi Server is not installed"
+  apt:
+    name: avahi-daemon
+    state: absent
+  when:
+      - not ubuntu2004cis_avahi_server
+      - ubuntu2004cis_rule_2_2_3
+  tags:
+      - level1
+      - scored
+      - avahi
+      - services
+      - patch
+      - rule_2.2.3
+
+- name: "SCORED | 2.2.4 | PATCH | Ensure CUPS is not installed"
+  apt:
+    name: cups
+    state: absent
+  when:
+      - not ubuntu2004cis_cups_server
+      - ubuntu2004cis_rule_2_2_4
+  tags:
+      - level1
+      - scored
+      - cups
+      - services
+      - patch
+      - rule_2.2.4
+
+- name: "SCORED | 2.2.5 | PATCH | Ensure DHCP Server is not installed"
+  apt:
+    name: dhcpd
+    state: absent
+  when:
+      - not ubuntu2004cis_dhcp_server
+      - ubuntu2004cis_rule_2_2_5
+  tags:
+      - level1
+      - scored
+      - dhcp
+      - services
+      - patch
+      - rule_2.2.5
+
+- name: "SCORED | 2.2.6 | PATCH | Ensure LDAP server is not installed"
+  apt:
+    name: slapd
+    state: absent
+  when:
+      - not ubuntu2004cis_ldap_server
+      - ubuntu2004cis_rule_2_2_6
+  tags:
+      - level1
+      - scored
+      - ldap
+      - services
+      - patch
+      - rule_2.2.6
+
+- name: "SCORED | 2.2.7 | PATCH | Ensure NFS is not installed"
+  apt:
+    name: nfs-kernel-server
+    state: absent
+  when:
+      - not ubuntu2004cis_nfs_rpc_server
+      - ubuntu2004cis_rule_2_2_7
+  tags:
+      - level1
+      - scored
+      - nfs
+      - services
+      - patch
+      - rule_2.2.7
+
+- name: "SCORED | 2.2.8 | PATCH | Ensure DNS Server is not installed"
+  apt:
+    name: bind9
+    state: absent
+  when:
+      - not ubuntu2004cis_named_server
+      - ubuntu2004cis_rule_2_2_8
+  tags:
+      - level1
+      - scored
+      - dns
+      - services
+      - patch
+      - rule_2.2.8
+
+- name: "SCORED | 2.2.9 | PATCH | Ensure FTP Server is not installed"
+  apt:
+    name: vsftpd
+    state: absent
+  when:
+      - not ubuntu2004cis_vsftpd_server
+      - ubuntu2004cis_rule_2_2_9
+  tags:
+      - level1
+      - scored
+      - ftp
+      - services
+      - patch
+      - rule_2.2.9
+
+- name: "SCORED | 2.2.10 | PATCH | Ensure HTTP server is not installed"
+  apt:
+    name: apache2
+    state: absent
+  when:
+      - not ubuntu2004cis_httpd_server
+      - ubuntu2004cis_rule_2_2_10
+  tags:
+      - level1
+      - scored
+      - http
+      - services
+      - patch
+      - rule_2.2.10
+
+- name: "SCORED | 2.2.11 | PATCH | Ensure IMAP and POP3 server are not installed"
+  apt:
+    name:
+      - dovecot-imapd
+      - dovecot-pop3d
+    state: absent
+  when:
+      - not ubuntu2004cis_dovecot_server
+      - ubuntu2004cis_rule_2_2_11
+  tags:
+      - level1
+      - scored
+      - imap
+      - pop3
+      - services
+      - patch
+      - rule_2.2.11
+
+- name: "SCORED | 2.2.12 | PATCH | Ensure Samba is not installed"
+  apt:
+    name: samba
+    state: absent
+  when:
+      - not ubuntu2004cis_smb_server
+      - ubuntu2004cis_rule_2_2_12
+  tags:
+      - level1
+      - scored
+      - samba
+      - services
+      - patch
+      - rule_2.2.12
+
+- name: "SCORED | 2.2.13 | PATCH | Ensure HTTP Proxy Server is not installed"
+  apt:
+    name: squid
+    state: absent
+  when:
+      - not ubuntu2004cis_squid_server
+      - ubuntu2004cis_rule_2_2_13
+  tags:
+      - level1
+      - scored
+      - http_proxy
+      - services
+      - patch
+      - rule_2.2.13
+
+- name: "SCORED | 2.2.14 | PATCH | Ensure SNMP Server is not installed"
+  apt:
+    name: snmpd
+    state: absent
+  when:
+      - not ubuntu2004cis_snmp_server
+      - ubuntu2004cis_rule_2_2_14
+  tags:
+      - level1
+      - scored
+      - snmp
+      - services
+      - patch
+      - rule_2.2.14
+
+- name: "SCORED | 2.2.15 | PATCH | Ensure mail transfer agent is configured for local-only mode"
+  lineinfile:
+      dest: /etc/postfix/main.cf
+      regexp: "^(#)?inet_interfaces"
+      line: "inet_interfaces = localhost"
+  when:
+      - not ubuntu2004cis_is_mail_server
+      - postfix_installed.rc == 0
+      - ubuntu2004cis_rule_2_2_15
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.2.15
+
+- name: "SCORED | 2.2.16 | PATCH | Ensure rsync service is not installed"
+  apt:
+    name: rsync
+    state: absent
+  when:
+    - not ubuntu2004cis_rsyncd_server
+    - ubuntu2004cis_rule_2_2_16
+  tags:
+    - level1
+    - scored
+    - rsync
+    - services
+    - patch
+    - rule_2.2.16
+
+- name: "SCORED | 2.2.17 | PATCH | Ensure NIS Server is not installed"
+  apt:
+    name: nis
+    state: absent
+  when:
+      - not ubuntu2004cis_nis_server
+      - ubuntu2004cis_rule_2_2_17
+  tags:
+      - level1
+      - scored
+      - nis
+      - services
+      - patch
+      - rule_2.2.17
+
+- name: "SCORED | 2.3.1 | PATCH | Ensure NIS Client is not installed"
+  apt:
+    name: yp-tools
+    state: absent
+  when:
+      - not ubuntu2004cis_ypbind_required
+      - ubuntu2004cis_rule_2_3_1
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.3.1
+
+- name: "SCORED | 2.3.2 | PATCH | Ensure rsh client is not installed"
+  apt:
+    name: rsh-client
+    state: absent
+  when:
+      - not ubuntu2004cis_rsh_required
+      - ubuntu2004cis_rule_2_3_2
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.3.2
+
+- name: "SCORED | 2.3.3 | PATCH | Ensure talk client is not installed"
+  apt:
+    name: talk
+    state: absent
+  when:
+      - not ubuntu2004cis_talk_required
+      - ubuntu2004cis_rule_2_3_3
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.3.3
+
+- name: "SCORED | 2.3.4 | PATCH | Ensure telnet client is not installed"
+  apt:
+    name: telnet
+    state: absent
+  when:
+      - not ubuntu2004cis_telnet_required
+      - ubuntu2004cis_rule_2_3_4
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.3.4
+
+- name: "SCORED | 2.3.5 | PATCH | Ensure LDAP client is not installed"
+  apt:
+    name: ldap-utils
+    state: absent
+  when:
+      - not ubuntu2004cis_openldap_clients_required
+      - ubuntu2004cis_rule_2_3_5
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.3.5
+
+- name: "SCORED | 2.3.6 | PATCH | Ensure RPC is not installed"
+  apt:
+    name: rpcbind
+    state: absent
+  when:
+      - not ubuntu2004cis_nfs_rpc_server
+      - ubuntu2004cis_rule_2_3_6
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_2.3.6
+
+- name: "NOTSCORED | 2.4 | PATCH | Ensure nonessential services are removed or masked"
+  command: /bin/true
+  when:
+      - ubuntu2004cis_rule_2_4
+  tags:
+      - level1
+      - notscored
+      - patch
+      - rule_2.4
+      - notimplemented
